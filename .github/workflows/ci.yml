@@ -1,12 +1,16 @@
 name: Website CI Checks
 
-# Trigger: any push or PR to main
-
+# Trigger: push to any of these branches, or a PR targeting main
+# (equivalent idea to a Satellite content view "publish" trigger,
+#  except here Git itself is the trigger instead of a manual click)
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
+permissions:
+  contents: write   # needed so the deploy job can push to the gh-pages branch
 
 jobs:
   checks:
@@ -47,7 +51,7 @@ jobs:
       - name: Build artifact
         run: |
           mkdir -p dist
-          cp index.html style.css dist/
+          cp index.html style.css script.js dist/
           echo "Build complete: $(date)" > dist/build-info.txt
 
       - name: Upload build artifact
@@ -56,14 +60,53 @@ jobs:
           name: website-build
           path: dist/
 
-  # Stage 5 (optional / bonus): deploy to GitHub Pages
-  # Uncomment this job once you enable Pages on the repo (Settings > Pages > Source: gh-pages)
-  deploy:
-    needs: checks
+  # Extra stage: Trivy vulnerability/misconfig scan
+  # No account or token needed — runs entirely inside the Action.
+  # exit-code is '0' for the demo so it never blocks the pipeline;
+  # flip to '1' once you're ready to enforce it as a real gate.
+  trivy-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Deploy
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'CRITICAL,HIGH'
+          format: 'table'
+          exit-code: '0'
+
+  # Extra stage: SonarCloud code quality scan
+  # Needs a one-time setup: sonarcloud.io account (free for public repos),
+  # then a SONAR_TOKEN secret in this repo. See README for the 3 steps.
+  sonarcloud-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # SonarCloud wants full git history, not a shallow clone
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # Stage 5: deploy to GitHub Pages
+  # Runs only on push events (not on PRs).
+  deploy:
+    needs: checks
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
