@@ -56,6 +56,37 @@ git push -u origin main
    - فحص تلقائي بعد كل تغيير على Satellite/Capsule config
 5. **الختام (5 دقائق)** — الخطوة الجاية لو حد ودّه يجرب بنفسه
 
+## script.js — للديمو مع SonarCloud
+
+الملف مليان مشاكل مقصودة عشان توريهم SonarCloud يمسكها لحظياً بعد أول push:
+- `var` بدل `let`/`const`
+- `==` بدل `===`
+- متغير غير مستخدم (unused variable)
+- سطر كود ما ينفذ أبداً (unreachable code بعد `return`)
+- كود مكرر بين دالتين (duplication)
+- `catch` فاضي يبلع الأخطاء بصمت
+- تعقيد منطقي عالي (nested if/else كثيرة)
+- رقم "سحري" (magic number) بدل ثابت مسمى
+
+بعد أول push وربط SonarCloud، روح لوحة المشروع وشوف قسم **Issues** — بتلقى أغلب هذي النقاط مصنفة تلقائياً بدون ما تكتب أي قاعدة يدوياً.
+
+## Integrations: Trivy + SonarCloud
+
+### Trivy (صفر إعداد)
+يشتغل مباشرة، ما يحتاج حساب ولا token. يفحص ملفات الريبو بحثاً عن ثغرات معروفة بالـ dependencies والملفات. مضبوط حالياً على `exit-code: '0'` عشان ما يوقف البايبلاين بالديمو — لو تبيه بوابة حقيقية (يوقف البايبلاين لو لقى ثغرة CRITICAL/HIGH)، غيّرها لـ `'1'`.
+
+### SonarCloud (يحتاج إعداد لمرة وحدة، 3 خطوات)
+
+1. روح [sonarcloud.io](https://sonarcloud.io) وسجل دخول بحساب GitHub تبعك (مجاني للريبوهات العامة)
+2. من الواجهة: **+ Analyze new project** → اختر الريبو `devops-kt-demo` (أو اسم الريبو اللي دفعته)
+3. بعد الاستيراد، روح لصفحة إعدادات المشروع وانسخ:
+   - `projectKey` و `organization` → حطهم في ملف `sonar-project.properties` بدل الـ placeholders
+   - أنشئ token من **My Account > Security > Generate Token** → روح لريبوك على GitHub → **Settings > Secrets and variables > Actions** → أضف secret جديد اسمه `SONAR_TOKEN` وحط فيه التوكن
+
+بعد كذا، أي push على main يشغّل تحليل SonarCloud تلقائي وتقدر تشوف النتيجة (code smells, bugs, maintainability) من لوحة SonarCloud نفسها أو من تعليق يضيفه على الـ PR.
+
+**نقطة تشرحها بالديمو:** هذي أول مرة يشوفون تكامل مع أداة خارجية عن طريق `secrets` — مفهوم مهم لأنه نفس المبدأ يستخدم لاحقاً لو ربطوا البايبلاين بـ Satellite API أو أي نظام داخلي، بدون ما يحطون كلمة السر بالكود مباشرة (وهذا بالضبط اللي مرحلة الـ secret scan بالبايبلاين تتأكد منه).
+
 ## ملاحظة
 
 هذا POC بسيط عن قصد — الهدف إثبات الفكرة وربطها بشغلهم الحالي، مو بناء نظام إنتاج.
