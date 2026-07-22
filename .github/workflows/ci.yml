@@ -1,0 +1,70 @@
+name: Website CI Checks
+
+# Trigger: any push or PR to main
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+
+      # Stage 1: get the code onto the runner
+      # (like cloning a repo onto a fresh VM before running a playbook)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Stage 2: syntax / lint check
+      # (equivalent to `ansible-playbook --syntax-check` before a real run)
+      - name: Lint HTML
+        run: |
+          echo "Installing HTML validator..."
+          pip install --quiet html5validator
+          html5validator --root . --ignore-re '\.git/' || {
+            echo "❌ HTML lint failed"; exit 1;
+          }
+          echo "✅ HTML lint passed"
+
+      # Stage 3: secret / sensitive data scan
+      # (equivalent to a CIS hardening audit, but scanning code instead of a server)
+      - name: Scan for hardcoded secrets
+        run: |
+          echo "Scanning files for potential hardcoded secrets..."
+          if grep -rEi "(password|api_key|secret)\s*=\s*['\"][^'\"]+['\"]" \
+              --include="*.html" --include="*.js" --include="*.css" . ; then
+            echo "❌ Potential secret found in source files"
+            exit 1
+          else
+            echo "✅ No secrets found"
+          fi
+
+      # Stage 4: package the "build"
+      # (equivalent to producing a content view / RPM set ready to promote)
+      - name: Build artifact
+        run: |
+          mkdir -p dist
+          cp index.html style.css dist/
+          echo "Build complete: $(date)" > dist/build-info.txt
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-build
+          path: dist/
+
+  # Stage 5 (optional / bonus): deploy to GitHub Pages
+  # Uncomment this job once you enable Pages on the repo (Settings > Pages > Source: gh-pages)
+  deploy:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
