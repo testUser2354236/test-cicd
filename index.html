@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DevOps KT Demo - DXC</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Welcome to the CI/CD Demo Site</h1>
+    <p>This tiny site exists for one reason: to get pushed to Git and watched by a pipeline.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>What happens when you push a change?</h2>
+      <ol>
+        <li>Code gets checked out on a fresh runner</li>
+        <li>HTML gets linted (syntax check, like <code>ansible-playbook --syntax-check</code>)</li>
+        <li>Files get scanned for hardcoded secrets/passwords</li>
+        <li>A "build" artifact gets produced and archived</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Status</h2>
+      <p>If you're reading this on GitHub Pages, the deploy stage worked too.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Built as a POC for the DevOps KT session.</p>
+  </footer>
+</body>
+</html>
